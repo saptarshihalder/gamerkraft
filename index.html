@@ -632,23 +632,28 @@
         // you dead
         function killThePlayerAndShowGameOver(reason) {
             allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.isHeDead = true;
-            displayAPopupBoxThingy('Game Over', reason, false);
+            showTheGameEndingScreen('Game Over', reason, false);
             makeExplosionParticles(allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.x + 12, allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.y + 12, '#ef4444', 20);
         }
 
         // you win
         function showTheVictoryScreenBecauseYouWon() {
             allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.didHeWin = true;
-            displayAPopupBoxThingy('Victory!', `Score: ${allTheGameLogicStuffIsStoredInHereIDKWhy.howManyPointsYouHave}`, true);
+            showTheGameEndingScreen('Victory!', `Score: ${allTheGameLogicStuffIsStoredInHereIDKWhy.howManyPointsYouHave}`, true);
             makeExplosionParticles(allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.x + 12, allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.y + 12, '#22c55e', 50);
         }
 
         // show box
-        function displayAPopupBoxThingy(title, sub, isWin) {
+        function showTheGameEndingScreen(title, sub, isWin) {
             document.getElementById('overlayTitle').innerText = title;
             document.getElementById('overlayTitle').className = isWin ? "text-4xl font-bold mb-2 text-green-400 drop-shadow-lg" : "text-4xl font-bold mb-2 text-red-400 drop-shadow-lg";
             document.getElementById('overlaySub').innerText = sub;
-            document.getElementById('gameOverlay').classList.remove('hidden');
+            
+            const overlay = document.getElementById('gameOverlay');
+            overlay.classList.remove('hidden');
+            // make it look like a full screen change
+            overlay.style.backgroundColor = '#0f172a'; // solid slate-950
+            overlay.style.backdropFilter = 'none';
         }
 
         // boom
