@@ -3,788 +3,1000 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GamerKraft 3D - Pro Editor</title>
+    <title>GamerKraft - Pro 2D Game Maker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- Three.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
 
         body {
             font-family: 'Inter', sans-serif;
             background-color: #0f172a; 
-            color: white;
+            color: #e2e8f0;
             overflow: hidden;
-            user-select: none;
+            touch-action: none;
         }
 
-        /* Editor Look */
-        .panel {
-            background: rgba(15, 23, 42, 0.95);
-            border: 1px solid #334155;
-            backdrop-filter: blur(8px);
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b; 
         }
 
-        .tool-btn {
-            transition: all 0.1s;
+        canvas {
+            image-rendering: pixelated; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
         }
+
         .tool-btn.active {
-            background-color: #2563eb;
+            background-color: #3b82f6; 
             color: white;
             border-color: #3b82f6;
         }
         
-        #crosshair {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 50;
-            filter: drop-shadow(0 0 2px black);
+        .modal {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(4px);
         }
 
-        /* Hide UI in exported game */
-        body.exported #editor-ui { display: none !important; }
-        body.exported #start-screen { display: flex !important; }
+        .pattern-grid {
+            background-image: radial-gradient(#334155 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        #tutorial-overlay {
+            z-index: 100;
+            display: none;
+        }
         
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+        .spotlight {
+            position: absolute;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.85); 
+            border-radius: 6px;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 101;
+            border: 2px solid #3b82f6;
+        }
+
+        .tutorial-card {
+            position: absolute;
+            z-index: 102;
+            width: 300px;
+            transition: all 0.4s ease;
+        }
+
+        body.exported-game #mainHeader,
+        body.exported-game #sidebar,
+        body.exported-game #tutorial-overlay,
+        body.exported-game #modeControls, 
+        body.exported-game #ioControls,
+        body.exported-game #dialogModal { 
+            display: none !important;
+        }
+        
+        body.exported-game #workspace {
+            padding: 0;
+            background: #020617;
+        }
     </style>
 </head>
-<body class="h-screen w-screen flex flex-col bg-black">
+<body class="h-screen w-screen flex flex-col">
 
-    <!-- EDITOR UI WRAPPER -->
-    <div id="editor-ui" class="absolute inset-0 pointer-events-none z-20 flex flex-col">
-        
-        <!-- Top Menu Bar -->
-        <div class="h-12 panel border-b flex items-center justify-between px-4 pointer-events-auto shrink-0">
-            <div class="flex items-center gap-4">
-                <div class="flex items-center gap-2 text-blue-500">
-                    <i data-lucide="box" class="w-5 h-5"></i>
-                    <span class="font-black tracking-tight text-white">GAMERKRAFT <span class="text-blue-500 text-xs align-top">PRO</span></span>
-                </div>
-                <div class="h-4 w-px bg-slate-700"></div>
-                <div class="flex bg-slate-800 rounded p-0.5">
-                    <button id="modeEdit" onclick="setMode('EDIT')" class="px-3 py-1 text-xs font-bold rounded bg-blue-600 text-white shadow">EDITOR</button>
-                    <button id="modePlay" onclick="setMode('PLAY')" class="px-3 py-1 text-xs font-bold rounded text-slate-400 hover:text-white">PLAY</button>
-                </div>
-            </div>
+    <header id="mainHeader" class="h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-6 shrink-0 z-20">
+        <div class="flex items-center gap-3">
+            <i data-lucide="gamepad-2" class="text-blue-500 w-6 h-6"></i>
+            <h1 class="font-bold text-lg tracking-tight">GamerKraft <span class="text-xs font-normal text-slate-500 bg-slate-800 px-2 py-0.5 rounded ml-2">v1.0</span></h1>
+        </div>
 
-            <div class="flex items-center gap-2">
-                <div id="score-display" class="hidden px-3 py-1 bg-slate-800 rounded text-yellow-400 font-mono text-sm font-bold border border-slate-700">
-                    SCORE: <span id="score-val">0</span>
-                </div>
-                <button onclick="saveWorld()" class="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white" title="Save Project"><i data-lucide="save" class="w-4 h-4"></i></button>
-                <button onclick="document.getElementById('fileInput').click()" class="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white" title="Load Project"><i data-lucide="folder-open" class="w-4 h-4"></i></button>
-                <button onclick="publishGame()" class="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs font-bold transition-colors shadow">
-                    <i data-lucide="rocket" class="w-3 h-3"></i> PUBLISH
+        <div class="flex items-center gap-4">
+            <div id="modeControls" class="flex bg-slate-800 rounded-lg p-1 border border-slate-700">
+                <button id="btnEdit" class="px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors active">
+                    <i data-lucide="pencil" class="w-4 h-4"></i> Editor
                 </button>
-                <input type="file" id="fileInput" class="hidden" accept=".json" onchange="loadWorld(this)">
+                <button id="btnPlay" class="px-4 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors hover:text-white text-slate-400 hover:bg-slate-700">
+                    <i data-lucide="play" class="w-4 h-4"></i> Play
+                </button>
             </div>
-        </div>
+            
+            <div class="h-6 w-px bg-slate-700 mx-2"></div>
 
-        <div class="flex-1 flex overflow-hidden">
-            <!-- Left Sidebar: Tools -->
-            <div class="w-16 panel border-r flex flex-col items-center py-4 gap-4 pointer-events-auto">
-                <div class="flex flex-col gap-2 w-full px-2">
-                    <span class="text-[10px] text-slate-500 font-bold text-center uppercase">Tools</span>
-                    <button onclick="setTool('brush')" id="tool-brush" class="tool-btn active w-full aspect-square rounded flex items-center justify-center bg-slate-800 border border-slate-700 text-slate-400 hover:text-white" title="Brush (Single Block)">
-                        <i data-lucide="paintbrush" class="w-5 h-5"></i>
-                    </button>
-                    <button onclick="setTool('box')" id="tool-box" class="tool-btn w-full aspect-square rounded flex items-center justify-center bg-slate-800 border border-slate-700 text-slate-400 hover:text-white" title="Box Fill (Drag to Build)">
-                        <i data-lucide="box-select" class="w-5 h-5"></i>
-                    </button>
-                    <button onclick="setTool('eraser')" id="tool-eraser" class="tool-btn w-full aspect-square rounded flex items-center justify-center bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:border-red-500 hover:bg-red-900/20" title="Eraser">
-                        <i data-lucide="eraser" class="w-5 h-5"></i>
-                    </button>
-                </div>
+            <div id="ioControls" class="flex items-center gap-2">
+                <button id="btnImport" onclick="document.getElementById('fileInput').click()" class="text-slate-400 hover:text-white transition-colors" title="Import JSON">
+                    <i data-lucide="upload" class="w-5 h-5"></i>
+                </button>
+                <input type="file" id="fileInput" class="hidden" accept=".json">
+
+                <button id="btnExport" onclick="saveTheLevelToAJsonFile()" class="text-slate-400 hover:text-white transition-colors" title="Save Project">
+                    <i data-lucide="save" class="w-5 h-5"></i>
+                </button>
                 
-                <div class="h-px w-8 bg-slate-700"></div>
+                <button onclick="exportTheGameAsAStandaloneHtmlFile()" class="text-green-400 hover:text-green-300 transition-colors ml-2" title="Publish Standalone Game">
+                    <i data-lucide="rocket" class="w-5 h-5"></i>
+                </button>
+                
+                <div class="h-6 w-px bg-slate-700 mx-2"></div>
 
-                <div class="flex flex-col gap-2 w-full px-2">
-                    <span class="text-[10px] text-slate-500 font-bold text-center uppercase">Action</span>
-                    <button onclick="clearWorld()" class="w-full aspect-square rounded flex items-center justify-center bg-slate-800 border border-slate-700 text-red-400 hover:bg-red-900/50 hover:text-red-200 transition-colors" title="Clear All">
-                        <i data-lucide="trash-2" class="w-5 h-5"></i>
-                    </button>
+                <button onclick="deleteEverythingOnTheMap()" class="text-red-400 hover:text-red-300 transition-colors" title="Clear Map">
+                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="h-6 w-px bg-slate-700 mx-2"></div>
+            
+            <button onclick="startTheTutorialThingy()" class="flex items-center gap-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-full transition-colors">
+                <i data-lucide="help-circle" class="w-3 h-3"></i> Help
+            </button>
+        </div>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+        
+        <aside id="sidebar" class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 z-10 overflow-y-auto">
+            <div class="p-4" id="toolsSection">
+                <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Brushes</h3>
+                <div class="grid grid-cols-2 gap-2" id="toolPalette">
+                    
                 </div>
             </div>
 
-            <!-- Main Viewport Area (Empty div, canvas is behind) -->
-            <div class="flex-1 relative">
-                <!-- Hint Overlay -->
-                <div id="tool-hint" class="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full backdrop-blur-sm border border-white/10 pointer-events-none">
-                    Left Click: Place • Right Click: Remove • Drag: Box Fill
+            <div class="p-4 border-t border-slate-800" id="settingsSection">
+                <h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Settings</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-400">Grid</span>
+                        <button id="toggleGrid" class="text-blue-400 font-mono text-xs">ON</button>
+                    </div>
+                    <div class="flex justify-between items-center text-sm">
+                        <span class="text-slate-400">Map Size</span>
+                        <span class="text-slate-500 font-mono text-xs">40x25</span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Right Sidebar: Properties (Future expansion) -->
-            <!-- For now kept simpler, just the block palette at bottom -->
-        </div>
+            <div class="mt-auto p-4 border-t border-slate-800 text-xs text-slate-600">
+                <p>Left Click: Paint</p>
+                <p>Right Click: Erase</p>
+                <p>Play: Arrow Keys / WASD</p>
+            </div>
+        </aside>
 
-        <!-- Bottom Palette -->
-        <div class="h-24 panel border-t p-2 pointer-events-auto shrink-0 flex justify-center">
-            <div class="flex gap-2 overflow-x-auto px-2" id="block-palette">
-                <!-- Blocks injected here -->
+        <main class="flex-1 bg-slate-950 pattern-grid relative overflow-auto flex items-center justify-center p-8 cursor-crosshair" id="workspace">
+            <canvas id="gameCanvas" class="bg-slate-900 border border-slate-700"></canvas>
+            
+            <div id="gameOverlay" class="hidden absolute inset-0 modal flex items-center justify-center flex-col z-50">
+                <h2 id="overlayTitle" class="text-4xl font-bold mb-2 text-white drop-shadow-lg">Game Over</h2>
+                <p id="overlaySub" class="text-slate-300 mb-6">You hit a spike!</p>
+                <button id="btnRestart" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-full font-bold shadow-lg transition-transform hover:scale-105 flex items-center gap-2">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Try Again
+                </button>
+            </div>
+
+            <div id="dialogModal" class="hidden absolute inset-0 modal flex items-center justify-center z-[60]">
+                <div class="bg-slate-800 border border-slate-600 rounded-lg p-6 shadow-2xl max-w-sm w-full mx-4 transform transition-all scale-100">
+                    <h3 id="dialogTitle" class="text-xl font-bold text-white mb-2">Confirm</h3>
+                    <p id="dialogText" class="text-slate-300 mb-6 text-sm">Are you sure?</p>
+                    <div class="flex justify-end gap-3">
+                        <button id="dialogCancel" class="px-4 py-2 rounded text-slate-300 hover:bg-slate-700 transition-colors text-sm font-medium">Cancel</button>
+                        <button id="dialogConfirm" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors shadow-lg">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="tutorial-overlay" class="absolute inset-0 w-full h-full pointer-events-auto">
+        <div id="spotlight" class="spotlight"></div>
+        <div id="tutorialCard" class="tutorial-card bg-slate-800 border border-slate-600 rounded-lg p-5 shadow-2xl">
+            <div class="flex justify-between items-start mb-3">
+                <h3 id="tutTitle" class="font-bold text-white text-lg">Welcome</h3>
+                <span id="tutStep" class="text-xs text-slate-500 font-mono bg-slate-900 px-2 py-0.5 rounded">1/5</span>
+            </div>
+            <p id="tutText" class="text-slate-300 text-sm mb-4 leading-relaxed">Description goes here.</p>
+            <div class="flex justify-between items-center">
+                <button onclick="endTheTutorialThingy()" class="text-slate-500 hover:text-slate-300 text-xs font-medium">Skip</button>
+                <button onclick="goToTheNextStepInTutorial()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors">Next</button>
             </div>
         </div>
     </div>
-
-    <!-- Start Screen -->
-    <div id="start-screen" class="hidden absolute inset-0 bg-slate-950 z-50 flex items-center justify-center flex-col">
-        <h1 class="text-6xl font-black text-white mb-2 tracking-tight">GAMERKRAFT <span class="text-blue-500">3D</span></h1>
-        <button onclick="startExportedGame()" class="mt-8 bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-full font-bold text-lg shadow-lg transition-transform hover:scale-105">START GAME</button>
-    </div>
-
-    <!-- Victory Overlay -->
-    <div id="game-overlay" class="hidden absolute inset-0 bg-slate-900/90 backdrop-blur-md z-40 flex items-center justify-center flex-col">
-        <h1 id="overlay-title" class="text-6xl font-black mb-4 text-white">VICTORY</h1>
-        <p id="overlay-msg" class="text-2xl text-slate-300 mb-8">Score: 0</p>
-        <button onclick="resetLevel()" class="bg-white text-slate-900 px-8 py-3 rounded-full font-bold hover:scale-105 transition-transform">TRY AGAIN</button>
-    </div>
-
-    <!-- Crosshair -->
-    <div id="crosshair">
-        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" class="w-6 h-6 drop-shadow-md">
-            <path d="M12 8v8M8 12h8" />
-        </svg>
-    </div>
-
-    <!-- 3D Canvas -->
-    <div id="canvas-container" class="absolute inset-0 z-0 bg-slate-900 cursor-crosshair"></div>
 
     <script>
-        // --- CONSTANTS ---
-        const BLOCKS = [
-            { id: 1, name: 'Stone', color: 0x64748b, type: 'solid' },
-            { id: 2, name: 'Grass', color: 0x22c55e, type: 'solid' },
-            { id: 3, name: 'Dirt', color: 0x78350f, type: 'solid' },
-            { id: 4, name: 'Wood', color: 0xa16207, type: 'solid' },
-            { id: 5, name: 'Brick', color: 0xb91c1c, type: 'solid' },
-            { id: 6, name: 'Glass', color: 0x67e8f9, opacity: 0.4, type: 'solid' },
-            { id: 7, name: 'Neon', color: 0xd946ef, type: 'solid', emissive: 0xd946ef },
-            // Mechanics
-            { id: 10, name: 'Start', color: 0x3b82f6, opacity: 0.5, type: 'spawn' },
-            { id: 11, name: 'Goal', color: 0x10b981, type: 'goal' },
-            { id: 12, name: 'Coin', color: 0xfacc15, type: 'coin', shape: 'coin' },
-            { id: 13, name: 'Spike', color: 0xff0000, type: 'hazard', shape: 'cone' },
-            { id: 14, name: 'Jump', color: 0xf472b6, type: 'jumppad' },
-            { id: 15, name: 'Speed', color: 0x22d3ee, type: 'speedpad' },
-            { id: 16, name: 'Enemy', color: 0x7e22ce, type: 'enemy_spawner', shape: 'skull' },
-            { id: 17, name: 'Turret', color: 0x334155, type: 'turret' }
-        ];
-
-        let state = {
-            mode: 'EDIT', // EDIT | PLAY
-            tool: 'brush', // brush | box | eraser
-            blockId: 1,
-            voxels: {}, // "x,y,z" -> id
-            meshes: {},
-            items: [],
-            entities: [],
-            player: { pos: new THREE.Vector3(0,10,0), vel: new THREE.Vector3(), rot: new THREE.Euler(0,0,0,'YXZ'), onGround:false, speed:1, dead:false, won:false },
-            drag: { active: false, start: new THREE.Vector3(), end: new THREE.Vector3() },
-            score: 0,
-            keys: { w:false, a:false, s:false, d:false, space:false, shift:false }
+        // this is the size of the square thingy
+        const theSizeOfOneSingleSquareBlockThingy = 32;
+        // this is how wide the map is in blocks
+        const theTotalNumberOfBlocksGoingLeftToRight = 40;
+        // this is how tall the map is in blocks
+        const theTotalNumberOfBlocksGoingTopToBottom = 25;
+        
+        // just a list of numbers i guess
+        const aListThatTellsUsWhatNumberMeansWhatBlock = {
+            NOTHING: 0,
+            GROUND_BLOCK: 1,
+            THE_DUDE: 2,
+            MONEY_THING: 3,
+            OUCHY_SPIKE: 4,
+            WINNER_FLAG: 5,
+            FLOATY_BLOCK: 6
         };
 
-        // --- THREE JS SETUP ---
-        const container = document.getElementById('canvas-container');
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0f172a);
-        scene.fog = new THREE.Fog(0x0f172a, 30, 90);
+        // pretty colors and icons and stuff
+        const theVisualInformationForTheBlocksLikeColorAndIcon = {
+            [aListThatTellsUsWhatNumberMeansWhatBlock.NOTHING]: { name: 'Eraser', color: null, icon: 'eraser' },
+            [aListThatTellsUsWhatNumberMeansWhatBlock.GROUND_BLOCK]: { name: 'Ground', color: '#475569', icon: 'square' },
+            [aListThatTellsUsWhatNumberMeansWhatBlock.FLOATY_BLOCK]: { name: 'Platform', color: '#64748b', icon: 'minus' },
+            [aListThatTellsUsWhatNumberMeansWhatBlock.THE_DUDE]: { name: 'Start', color: '#3b82f6', icon: 'user' },
+            [aListThatTellsUsWhatNumberMeansWhatBlock.MONEY_THING]: { name: 'Coin', color: '#fbbf24', icon: 'circle-dollar-sign' },
+            [aListThatTellsUsWhatNumberMeansWhatBlock.OUCHY_SPIKE]: { name: 'Spike', color: '#ef4444', icon: 'triangle' },
+            [aListThatTellsUsWhatNumberMeansWhatBlock.WINNER_FLAG]: { name: 'Goal', color: '#22c55e', icon: 'flag' }
+        };
 
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        container.appendChild(renderer.domElement);
+        // this holds all the stuff that changes
+        const thisVariableHoldsEverythingThatIsHappeningRightNow = {
+            whatModeAreWeIn: 'EDIT', 
+            theMapDataArrayWithNumbers: new Array(theTotalNumberOfBlocksGoingLeftToRight * theTotalNumberOfBlocksGoingTopToBottom).fill(0),
+            theBlockWeAreCurrentlyUsingToPaint: aListThatTellsUsWhatNumberMeansWhatBlock.GROUND_BLOCK,
+            isTheGridLinesVisibleOrNot: true,
+            isTheMouseCurrentlyBeingPressedDown: false,
+            isTheMouseRightClicked: false,
+            whereIsTheCameraLooking: { x: 0, y: 0 }
+        };
 
-        // Environment
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-        const sun = new THREE.DirectionalLight(0xffffff, 0.7);
-        sun.position.set(50, 100, 50);
-        sun.castShadow = true;
-        sun.shadow.mapSize.width = 2048;
-        sun.shadow.mapSize.height = 2048;
-        scene.add(sun);
+        // all the game logic happens here i think
+        let allTheGameLogicStuffIsStoredInHereIDKWhy = {
+            isTheGameRunning: false,
+            theLittleGuyYouControl: { x: 0, y: 0, vx: 0, vy: 0, isHeOnTheGround: false, isHeDead: false, didHeWin: false },
+            theMoneyThingsYouCanCollect: [],
+            theExplosionParticles: [],
+            howManyPointsYouHave: 0
+        };
 
-        // Editor Helpers
-        const gridHelper = new THREE.GridHelper(200, 200, 0x1e293b, 0x0f172a);
-        scene.add(gridHelper);
-        const axesHelper = new THREE.AxesHelper(5);
-        scene.add(axesHelper);
+        // grabbing the elements from the html page
+        const theHTMLCanvasElementThatWeDrawOn = document.getElementById('gameCanvas');
+        const theContextThingyNormallyCalledCtxButImChangingIt = theHTMLCanvasElementThatWeDrawOn.getContext('2d');
+        const theDivContainerThatHoldsTheCanvas = document.getElementById('workspace');
 
-        // Input
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-
-        // Selection Box (Ghost)
-        const ghostGeo = new THREE.BoxGeometry(1,1,1);
-        const ghostMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, opacity: 0.3, transparent: true, depthTest: false });
-        const ghost = new THREE.Mesh(ghostGeo, ghostMat);
-        scene.add(ghost);
-        
-        const selectionBox = new THREE.Box3Helper(new THREE.Box3(), 0xffff00);
-        scene.add(selectionBox);
-        selectionBox.visible = false;
-
-        // --- MESH GENERATION ---
-        const boxGeo = new THREE.BoxGeometry(1,1,1);
-        const coneGeo = new THREE.ConeGeometry(0.5, 0.8, 4);
-        const coinGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16); coinGeo.rotateX(Math.PI/2);
-        
-        const materials = {};
-        BLOCKS.forEach(b => {
-            materials[b.id] = new THREE.MeshStandardMaterial({
-                color: b.color,
-                roughness: 0.6,
-                metalness: 0.1,
-                transparent: !!b.opacity,
-                opacity: b.opacity || 1,
-                emissive: b.emissive || 0x000000,
-                emissiveIntensity: 0.5
-            });
-        });
-
-        const enemyMat = new THREE.MeshStandardMaterial({ color: 0xef4444 });
-        const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-
-        // --- CORE FUNCTIONS ---
-
-        function createBlock(x, y, z, id) {
-            const key = `${x},${y},${z}`;
-            if(state.voxels[key]) removeBlock(x,y,z); // Replace existing
-
-            const def = BLOCKS.find(b => b.id === id);
-            if(!def) return;
-
-            let mesh;
-            if(def.shape === 'cone') {
-                mesh = new THREE.Mesh(coneGeo, materials[id]);
-                mesh.position.set(x+0.5, y+0.4, z+0.5);
-            } else if(def.shape === 'coin') {
-                mesh = new THREE.Mesh(coinGeo, materials[id]);
-                mesh.position.set(x+0.5, y+0.5, z+0.5);
+        // lets get this party started
+        function startTheWholeFreakingEngine() {
+            // checking if we downloaded this game or not
+            if (window.EXPORTED_GAME_DATA) {
+                // putting the map data in the thing
+                thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers = window.EXPORTED_GAME_DATA.map;
+                
+                // hiding the buttons and stuff
+                document.body.classList.add('exported-game');
+                
+                // start playing right away
+                thisVariableHoldsEverythingThatIsHappeningRightNow.whatModeAreWeIn = 'PLAY';
+                // wait a bit for no reason
+                setTimeout(() => {
+                    prepareTheGameVariablesBeforeStarting();
+                    // fixing the size
+                    window.addEventListener('resize', fixTheCanvasSizeForExportedGames);
+                    fixTheCanvasSizeForExportedGames();
+                }, 100);
             } else {
-                mesh = new THREE.Mesh(boxGeo, materials[id]);
-                mesh.position.set(x+0.5, y+0.5, z+0.5);
+                // editor mode stuff
+                theHTMLCanvasElementThatWeDrawOn.width = theTotalNumberOfBlocksGoingLeftToRight * theSizeOfOneSingleSquareBlockThingy;
+                theHTMLCanvasElementThatWeDrawOn.height = theTotalNumberOfBlocksGoingTopToBottom * theSizeOfOneSingleSquareBlockThingy;
+                makeTheButtonsLookNiceInTheSidebar();
             }
 
-            if(def.type === 'solid' || def.type === 'jumppad' || def.type === 'speedpad' || def.type === 'turret') {
-                mesh.castShadow = true;
-                mesh.receiveShadow = true;
-            }
+            // making icons appear
+            if(typeof lucide !== 'undefined') lucide.createIcons();
 
-            mesh.userData = { x, y, z, id, def, isBlock: true };
-            scene.add(mesh);
-            state.voxels[key] = id;
-            state.meshes[key] = mesh;
-
-            if(['coin','hazard','goal','jumppad','speedpad','enemy_spawner','turret'].includes(def.type)) {
-                state.items.push({ mesh, x, y, z, def, active: true });
-            }
+            listenForClicksAndKeyboardPresses();
+            
+            // start the loopty loop
+            requestAnimationFrame(theMainLoopThatRunsSixtyTimesASecond);
+        }
+        
+        // this shit makes it center on screen
+        function fixTheCanvasSizeForExportedGames() {
+            if (!window.EXPORTED_GAME_DATA) return;
+            // centering it
+            theHTMLCanvasElementThatWeDrawOn.style.marginTop = 'auto';
+            theHTMLCanvasElementThatWeDrawOn.style.marginBottom = 'auto';
         }
 
-        function removeBlock(x, y, z) {
-            const key = `${x},${y},${z}`;
-            if(!state.voxels[key]) return;
-            
-            scene.remove(state.meshes[key]);
-            state.meshes[key].geometry.dispose(); // clean memory
-            delete state.voxels[key];
-            delete state.meshes[key];
-            
-            state.items = state.items.filter(i => !(i.x === x && i.y === y && i.z === z));
-        }
+        // buttons go brrr
+        function makeTheButtonsLookNiceInTheSidebar() {
+            const container = document.getElementById('toolPalette');
+            if(!container) return;
+            container.innerHTML = '';
 
-        function clearWorld() {
-            Object.keys(state.voxels).forEach(k => {
-                const [x,y,z] = k.split(',').map(Number);
-                removeBlock(x,y,z);
+            Object.keys(theVisualInformationForTheBlocksLikeColorAndIcon).forEach(key => {
+                const id = parseInt(key);
+                const def = theVisualInformationForTheBlocksLikeColorAndIcon[id];
+                if (!def) return;
+
+                const btn = document.createElement('button');
+                btn.className = `tool-btn p-3 rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 flex flex-col items-center gap-2 transition-all ${id === thisVariableHoldsEverythingThatIsHappeningRightNow.theBlockWeAreCurrentlyUsingToPaint ? 'active ring-2 ring-blue-500 ring-offset-1 ring-offset-slate-900' : ''}`;
+                btn.onclick = () => pickTheToolYouWantToUse(id);
+                
+                // svg garbage
+                let iconSvg = '';
+                if(def.icon === 'square') iconSvg = '<rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor"/>';
+                else if(def.icon === 'user') iconSvg = '<circle cx="12" cy="8" r="4" fill="currentColor"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" fill="currentColor"/>';
+                else if(def.icon === 'triangle') iconSvg = '<path d="M12 4L4 20h16L12 4z" fill="currentColor"/>';
+                else if(def.icon === 'circle-dollar-sign') iconSvg = '<circle cx="12" cy="12" r="8" stroke="currentColor" fill="none" stroke-width="2"/><path d="M12 8v8" stroke="currentColor" stroke-width="2"/>';
+                else if(def.icon === 'flag') iconSvg = '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" fill="currentColor"/><line x1="4" y1="22" x2="4" y2="15" stroke="currentColor" stroke-width="2"/>';
+                else if(def.icon === 'minus') iconSvg = '<rect x="4" y="10" width="16" height="4" rx="1" fill="currentColor"/>';
+                else iconSvg = '<path d="M18 13l-5-5-5 5M13 8l5 5 5-5" stroke="currentColor" fill="none" stroke-width="2"/>'; 
+
+                btn.innerHTML = `
+                    <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">${iconSvg}</svg>
+                    <span class="text-xs font-medium">${def.name}</span>
+                `;
+                container.appendChild(btn);
             });
-            // Default Platform
-            for(let x=-5; x<5; x++) for(let z=-5; z<5; z++) createBlock(x,0,z, 1);
         }
 
-        // --- TOOLS & INTERACTION ---
+        // picking the tool
+        function pickTheToolYouWantToUse(id) {
+            thisVariableHoldsEverythingThatIsHappeningRightNow.theBlockWeAreCurrentlyUsingToPaint = id;
+            document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
+            // do it again
+            makeTheButtonsLookNiceInTheSidebar();
+        }
 
-        // Palette UI
-        const palette = document.getElementById('block-palette');
-        BLOCKS.forEach(b => {
-            const btn = document.createElement('div');
-            btn.className = `flex flex-col items-center gap-1 min-w-[60px] cursor-pointer opacity-70 hover:opacity-100 transition-opacity`;
-            btn.innerHTML = `
-                <div class="w-10 h-10 rounded border-2 border-slate-600 shadow-md" style="background-color: #${b.color.toString(16).padStart(6,'0')}"></div>
-                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">${b.name}</span>
-            `;
-            btn.onclick = () => {
-                state.blockId = b.id;
-                state.tool = 'brush'; // Auto switch to brush
-                updateUI();
+        // listening for things
+        function listenForClicksAndKeyboardPresses() {
+            // mouse clicky
+            theHTMLCanvasElementThatWeDrawOn.addEventListener('mousedown', (e) => {
+                thisVariableHoldsEverythingThatIsHappeningRightNow.isTheMouseCurrentlyBeingPressedDown = true;
+                thisVariableHoldsEverythingThatIsHappeningRightNow.isTheMouseRightClicked = e.button === 2;
+                drawTheBlockOnTheScreenWhenClicked(e);
+            });
+            window.addEventListener('mouseup', () => thisVariableHoldsEverythingThatIsHappeningRightNow.isTheMouseCurrentlyBeingPressedDown = false);
+            theHTMLCanvasElementThatWeDrawOn.addEventListener('mousemove', (e) => {
+                if(thisVariableHoldsEverythingThatIsHappeningRightNow.isTheMouseCurrentlyBeingPressedDown) drawTheBlockOnTheScreenWhenClicked(e);
+            });
+            theHTMLCanvasElementThatWeDrawOn.addEventListener('contextmenu', e => e.preventDefault());
+
+            // button clicky
+            const btnEdit = document.getElementById('btnEdit');
+            if(btnEdit) btnEdit.addEventListener('click', () => switchBetweenEditingAndPlayingTheGame('EDIT'));
+            
+            const btnPlay = document.getElementById('btnPlay');
+            if(btnPlay) btnPlay.addEventListener('click', () => switchBetweenEditingAndPlayingTheGame('PLAY'));
+            
+            const btnGrid = document.getElementById('toggleGrid');
+            if(btnGrid) btnGrid.addEventListener('click', turnTheGridLinesOnOrOff);
+            
+            const btnRestart = document.getElementById('btnRestart');
+            if(btnRestart) btnRestart.addEventListener('click', startOverBecauseYouProbablyDied);
+
+            // file stuff
+            const fInput = document.getElementById('fileInput');
+            if(fInput) fInput.addEventListener('change', loadTheLevelFromAJsonFile);
+
+            // key smash
+            window.addEventListener('keydown', checkIfTheUserIsPressingKeys);
+            window.addEventListener('keyup', checkIfTheUserStoppedPressingKeys);
+            window.addEventListener('resize', () => {
+                if(isTheTutorialThingActiveOrNot) endTheTutorialThingy(); 
+            });
+        }
+
+        // drawing blocks
+        function drawTheBlockOnTheScreenWhenClicked(e) {
+            if (thisVariableHoldsEverythingThatIsHappeningRightNow.whatModeAreWeIn !== 'EDIT') return;
+            const rect = theHTMLCanvasElementThatWeDrawOn.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / theSizeOfOneSingleSquareBlockThingy);
+            const y = Math.floor((e.clientY - rect.top) / theSizeOfOneSingleSquareBlockThingy);
+
+            if (x < 0 || x >= theTotalNumberOfBlocksGoingLeftToRight || y < 0 || y >= theTotalNumberOfBlocksGoingTopToBottom) return;
+
+            const idx = y * theTotalNumberOfBlocksGoingLeftToRight + x;
+            const tileToSet = thisVariableHoldsEverythingThatIsHappeningRightNow.isTheMouseRightClicked ? aListThatTellsUsWhatNumberMeansWhatBlock.NOTHING : thisVariableHoldsEverythingThatIsHappeningRightNow.theBlockWeAreCurrentlyUsingToPaint;
+
+            // only one player allowed otherwise game go boom
+            if (tileToSet === aListThatTellsUsWhatNumberMeansWhatBlock.THE_DUDE) {
+                const existingPlayer = thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers.indexOf(aListThatTellsUsWhatNumberMeansWhatBlock.THE_DUDE);
+                if (existingPlayer !== -1) thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers[existingPlayer] = aListThatTellsUsWhatNumberMeansWhatBlock.NOTHING;
+            }
+
+            thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers[idx] = tileToSet;
+        }
+
+        // switching modes
+        function switchBetweenEditingAndPlayingTheGame(mode) {
+            thisVariableHoldsEverythingThatIsHappeningRightNow.whatModeAreWeIn = mode;
+            const btnEdit = document.getElementById('btnEdit');
+            const btnPlay = document.getElementById('btnPlay');
+            const overlay = document.getElementById('gameOverlay');
+
+            if (mode === 'PLAY') {
+                if(btnEdit) {
+                    btnEdit.classList.remove('active', 'bg-blue-600', 'text-white');
+                    btnEdit.classList.add('text-slate-400');
+                }
+                if(btnPlay) {
+                    btnPlay.classList.add('active', 'bg-blue-600', 'text-white');
+                    btnPlay.classList.remove('text-slate-400');
+                }
+                
+                prepareTheGameVariablesBeforeStarting();
+                theDivContainerThatHoldsTheCanvas.style.cursor = 'default';
+            } else {
+                if(btnPlay) {
+                    btnPlay.classList.remove('active', 'bg-blue-600', 'text-white');
+                    btnPlay.classList.add('text-slate-400');
+                }
+                if(btnEdit) {
+                    btnEdit.classList.add('active', 'bg-blue-600', 'text-white');
+                    btnEdit.classList.remove('text-slate-400');
+                }
+                
+                overlay.classList.add('hidden');
+                theDivContainerThatHoldsTheCanvas.style.cursor = 'crosshair';
+            }
+        }
+
+        // grid toggle
+        function turnTheGridLinesOnOrOff() {
+            thisVariableHoldsEverythingThatIsHappeningRightNow.isTheGridLinesVisibleOrNot = !thisVariableHoldsEverythingThatIsHappeningRightNow.isTheGridLinesVisibleOrNot;
+            document.getElementById('toggleGrid').innerText = thisVariableHoldsEverythingThatIsHappeningRightNow.isTheGridLinesVisibleOrNot ? "ON" : "OFF";
+        }
+
+        // keys object
+        const KEYS = { left: false, right: false, up: false };
+
+        // key down
+        function checkIfTheUserIsPressingKeys(e) {
+            if (thisVariableHoldsEverythingThatIsHappeningRightNow.whatModeAreWeIn !== 'PLAY') return;
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') KEYS.left = true;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') KEYS.right = true;
+            if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') {
+                if(!KEYS.up && allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.isHeOnTheGround && !allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.isHeDead && !allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.didHeWin) {
+                    allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.vy = -13; 
+                    allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.isHeOnTheGround = false;
+                }
+                KEYS.up = true;
+            }
+            if (e.code === 'KeyR') startOverBecauseYouProbablyDied();
+        }
+
+        // key up
+        function checkIfTheUserStoppedPressingKeys(e) {
+            if (e.code === 'ArrowLeft' || e.code === 'KeyA') KEYS.left = false;
+            if (e.code === 'ArrowRight' || e.code === 'KeyD') KEYS.right = false;
+            if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') KEYS.up = false;
+        }
+
+        // making the game ready
+        function prepareTheGameVariablesBeforeStarting() {
+            // find start
+            let startIdx = thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers.indexOf(aListThatTellsUsWhatNumberMeansWhatBlock.THE_DUDE);
+            if (startIdx === -1) startIdx = 0; 
+
+            const startX = (startIdx % theTotalNumberOfBlocksGoingLeftToRight) * theSizeOfOneSingleSquareBlockThingy;
+            const startY = Math.floor(startIdx / theTotalNumberOfBlocksGoingLeftToRight) * theSizeOfOneSingleSquareBlockThingy;
+
+            allTheGameLogicStuffIsStoredInHereIDKWhy = {
+                isTheGameRunning: true,
+                theLittleGuyYouControl: { 
+                    x: startX, 
+                    y: startY, 
+                    w: 24, h: 24, 
+                    vx: 0, vy: 0, 
+                    isHeOnTheGround: false,
+                    isHeDead: false,
+                    didHeWin: false
+                },
+                theMoneyThingsYouCanCollect: [],
+                theExplosionParticles: [],
+                howManyPointsYouHave: 0
             };
-            palette.appendChild(btn);
-        });
 
-        function setTool(t) {
-            state.tool = t;
-            updateUI();
-        }
-
-        function updateUI() {
-            document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-            document.getElementById(`tool-${state.tool}`).classList.add('active');
-            
-            document.getElementById('tool-hint').innerText = 
-                state.tool === 'box' ? "Click & Drag to Fill Area" : 
-                state.tool === 'eraser' ? "Click or Drag to Erase" : 
-                "Left Click to Build • Right Click to Erase";
-        }
-
-        // Raycasting Logic
-        function getIntersect() {
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(scene.children);
-            const hit = intersects.find(i => i.object.userData.isBlock);
-            
-            if (hit) {
-                return { 
-                    pos: hit.object.position.clone(), 
-                    normal: hit.face.normal,
-                    voxel: {
-                        x: hit.object.userData.x,
-                        y: hit.object.userData.y,
-                        z: hit.object.userData.z
-                    }
-                };
-            }
-            
-            // Ground Plane Logic (y=0)
-            const t = -raycaster.ray.origin.y / raycaster.ray.direction.y;
-            if (t > 0 && t < 200) {
-                const p = new THREE.Vector3().copy(raycaster.ray.origin).add(raycaster.ray.direction.multiplyScalar(t));
-                return {
-                    pos: p,
-                    normal: new THREE.Vector3(0,1,0),
-                    voxel: {
-                        x: Math.floor(p.x),
-                        y: 0,
-                        z: Math.floor(p.z)
-                    }
-                };
-            }
-            return null;
-        }
-
-        // Mouse Events
-        document.addEventListener('mousedown', e => {
-            if(e.target.closest('#editor-ui') || state.mode === 'PLAY') return;
-            if(e.button !== 0 && e.button !== 2) return; // Only L/R click
-
-            const hit = getIntersect();
-            if(!hit) return;
-
-            if (state.tool === 'box' || (state.tool === 'eraser' && e.button === 0)) {
-                // Start Drag
-                state.drag.active = true;
-                
-                // Determine start voxel
-                if (state.tool === 'eraser' || e.button === 2) {
-                    state.drag.start.set(hit.voxel.x, hit.voxel.y, hit.voxel.z);
-                } else {
-                    // Build mode starts adjacent
-                    state.drag.start.set(
-                        hit.voxel.x + (hit.pos.y > 0 ? hit.normal.x : 0), // Use normal if hitting block
-                        hit.voxel.y + (hit.pos.y > 0 ? hit.normal.y : 0),
-                        hit.voxel.z + (hit.pos.y > 0 ? hit.normal.z : 0)
-                    );
-                    // Correct ground logic
-                    if(hit.pos.y < 0.1) state.drag.start.set(Math.floor(hit.pos.x), 0, Math.floor(hit.pos.z));
-                }
-            } else {
-                // Brush Click
-                if (state.tool === 'eraser' || e.button === 2) {
-                    removeBlock(hit.voxel.x, hit.voxel.y, hit.voxel.z);
-                } else {
-                    const nx = hit.voxel.x + hit.normal.x;
-                    const ny = hit.voxel.y + hit.normal.y;
-                    const nz = hit.voxel.z + hit.normal.z;
-                    // If hitting ground, just place at coords
-                    if(hit.pos.y < 0.1) createBlock(Math.floor(hit.pos.x), 0, Math.floor(hit.pos.z), state.blockId);
-                    else createBlock(nx, ny, nz, state.blockId);
-                }
-            }
-        });
-
-        document.addEventListener('mousemove', e => {
-            if(state.mode === 'PLAY') {
-                if(document.pointerLockElement) {
-                    state.player.rot.y -= e.movementX * 0.002;
-                    state.player.rot.x -= e.movementY * 0.002;
-                    state.player.rot.x = Math.max(-1.5, Math.min(1.5, state.player.rot.x));
-                    camera.quaternion.setFromEuler(state.player.rot);
-                }
-                return;
-            }
-
-            // Editor Logic
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-
-            const hit = getIntersect();
-            
-            // Drag Preview
-            if (state.drag.active && hit) {
-                const end = new THREE.Vector3(hit.voxel.x, hit.voxel.y, hit.voxel.z);
-                if(state.tool === 'box' && hit.pos.y > 0.1) end.add(hit.normal); // Add normal if building
-                
-                // Calculate Bounds
-                const min = new THREE.Vector3().minVectors(state.drag.start, end);
-                const max = new THREE.Vector3().maxVectors(state.drag.start, end).addScalar(1);
-                
-                const box = new THREE.Box3(min, max);
-                selectionBox.box = box;
-                selectionBox.visible = true;
-                ghost.visible = false;
-            } 
-            // Ghost Cursor
-            else if (hit) {
-                selectionBox.visible = false;
-                ghost.visible = true;
-                
-                if (state.tool === 'eraser') {
-                    ghost.position.set(hit.voxel.x + 0.5, hit.voxel.y + 0.5, hit.voxel.z + 0.5);
-                    ghost.material.color.setHex(0xff0000);
-                } else {
-                    // Place Preview
-                    const pos = hit.pos.y < 0.1 
-                        ? new THREE.Vector3(Math.floor(hit.pos.x)+0.5, 0.5, Math.floor(hit.pos.z)+0.5)
-                        : new THREE.Vector3(hit.voxel.x + hit.normal.x + 0.5, hit.voxel.y + hit.normal.y + 0.5, hit.voxel.z + hit.normal.z + 0.5);
-                    
-                    ghost.position.copy(pos);
-                    ghost.material.color.setHex(0x3b82f6);
-                }
-            } else {
-                ghost.visible = false;
-                selectionBox.visible = false;
-            }
-        });
-
-        document.addEventListener('mouseup', () => {
-            if (state.drag.active) {
-                const box = selectionBox.box;
-                if (box) {
-                    for(let x = box.min.x; x < box.max.x; x++) {
-                        for(let y = box.min.y; y < box.max.y; y++) {
-                            for(let z = box.min.z; z < box.max.z; z++) {
-                                if (state.tool === 'eraser') removeBlock(x,y,z);
-                                else createBlock(x,y,z, state.blockId);
-                            }
-                        }
-                    }
-                }
-                state.drag.active = false;
-                selectionBox.visible = false;
-            }
-        });
-
-        // --- GAME LOOP ---
-        function updateGame() {
-            // Entities (Enemies/Bullets)
-            state.entities.forEach((e, i) => {
-                if(e.type === 'enemy') {
-                    const dir = new THREE.Vector3().subVectors(state.player.pos, e.pos).normalize();
-                    e.pos.add(dir.multiplyScalar(0.05));
-                    e.mesh.position.copy(e.pos);
-                    e.mesh.lookAt(state.player.pos);
-                    if(e.pos.distanceTo(state.player.pos) < 0.8) die();
-                }
-                if(e.type === 'bullet') {
-                    e.pos.add(e.vel);
-                    e.mesh.position.copy(e.pos);
-                    if(e.pos.distanceTo(state.player.pos) < 0.8) die();
-                    if(e.pos.distanceTo(state.player.pos) > 50) {
-                        scene.remove(e.mesh);
-                        state.entities.splice(i,1);
-                    }
+            // adding money
+            thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers.forEach((t, i) => {
+                if (t === aListThatTellsUsWhatNumberMeansWhatBlock.MONEY_THING) {
+                    allTheGameLogicStuffIsStoredInHereIDKWhy.theMoneyThingsYouCanCollect.push({ 
+                        x: (i % theTotalNumberOfBlocksGoingLeftToRight) * theSizeOfOneSingleSquareBlockThingy + 8, 
+                        y: Math.floor(i / theTotalNumberOfBlocksGoingLeftToRight) * theSizeOfOneSingleSquareBlockThingy + 8,
+                        collected: false,
+                        bobOffset: Math.random() * Math.PI * 2
+                    });
                 }
             });
 
-            // Turrets
-            if (Math.random() < 0.01) {
-                state.items.forEach(i => {
-                    if(i.def.type === 'turret' && i.active) {
-                        const p = new THREE.Vector3(i.x+0.5, i.y+0.5, i.z+0.5);
-                        if(p.distanceTo(state.player.pos) < 15) {
-                            const dir = new THREE.Vector3().subVectors(state.player.pos, p).normalize();
-                            spawnBullet(p, dir);
+            document.getElementById('gameOverlay').classList.add('hidden');
+        }
+
+        // reset
+        function startOverBecauseYouProbablyDied() {
+            prepareTheGameVariablesBeforeStarting();
+        }
+
+        // physics and stuff
+        function calculatePhysicsAndMovementStuff() {
+            if (thisVariableHoldsEverythingThatIsHappeningRightNow.whatModeAreWeIn !== 'PLAY' || !allTheGameLogicStuffIsStoredInHereIDKWhy.isTheGameRunning || allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.isHeDead || allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.didHeWin) return;
+
+            const p = allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl;
+
+            // move left right
+            if (KEYS.left) p.vx = -5;
+            else if (KEYS.right) p.vx = 5;
+            else p.vx *= 0.8; 
+
+            // gravity hurts
+            p.vy += 0.6; 
+            if(p.vy > 12) p.vy = 12; 
+
+            // move
+            p.x += p.vx;
+            stopThePlayerFromGoingThroughWalls(p, 'x');
+            p.y += p.vy;
+            stopThePlayerFromGoingThroughWalls(p, 'y');
+
+            // void check
+            if (p.y > theHTMLCanvasElementThatWeDrawOn.height) killThePlayerAndShowGameOver("You fell into the void!");
+
+            // check stuff
+            seeIfWeTouchedACoinOrSpike();
+
+            // particles go boom
+            allTheGameLogicStuffIsStoredInHereIDKWhy.theExplosionParticles.forEach((pt, i) => {
+                pt.x += pt.vx;
+                pt.y += pt.vy;
+                pt.life--;
+                if(pt.life <= 0) allTheGameLogicStuffIsStoredInHereIDKWhy.theExplosionParticles.splice(i, 1);
+            });
+        }
+
+        // bonk
+        function stopThePlayerFromGoingThroughWalls(p, axis) {
+            // math stuff i copied
+            const left = Math.floor(p.x / theSizeOfOneSingleSquareBlockThingy);
+            const right = Math.floor((p.x + p.w) / theSizeOfOneSingleSquareBlockThingy);
+            const top = Math.floor(p.y / theSizeOfOneSingleSquareBlockThingy);
+            const bottom = Math.floor((p.y + p.h) / theSizeOfOneSingleSquareBlockThingy);
+
+            const tilesToCheck = [];
+            for(let y = top; y <= bottom; y++) {
+                for(let x = left; x <= right; x++) {
+                    if (x < 0 || x >= theTotalNumberOfBlocksGoingLeftToRight || y < 0 || y >= theTotalNumberOfBlocksGoingTopToBottom) continue;
+                    const type = thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers[y * theTotalNumberOfBlocksGoingLeftToRight + x];
+                    if (type === aListThatTellsUsWhatNumberMeansWhatBlock.GROUND_BLOCK || type === aListThatTellsUsWhatNumberMeansWhatBlock.FLOATY_BLOCK) {
+                        tilesToCheck.push({x: x * theSizeOfOneSingleSquareBlockThingy, y: y * theSizeOfOneSingleSquareBlockThingy, type});
+                    }
+                }
+            }
+
+            for (let tile of tilesToCheck) {
+                // collision maths
+                if (p.x < tile.x + theSizeOfOneSingleSquareBlockThingy && p.x + p.w > tile.x &&
+                    p.y < tile.y + theSizeOfOneSingleSquareBlockThingy && p.y + p.h > tile.y) {
+                    
+                    if (axis === 'x') {
+                        if (p.vx > 0) p.x = tile.x - p.w;
+                        if (p.vx < 0) p.x = tile.x + theSizeOfOneSingleSquareBlockThingy;
+                        p.vx = 0;
+                    } else {
+                        if (p.vy > 0) { 
+                             if (tile.type === aListThatTellsUsWhatNumberMeansWhatBlock.FLOATY_BLOCK && (p.y - p.vy) + p.h > tile.y) return;
+
+                            p.y = tile.y - p.h;
+                            p.isHeOnTheGround = true;
+                            p.vy = 0;
+                        } else if (p.vy < 0 && tile.type !== aListThatTellsUsWhatNumberMeansWhatBlock.FLOATY_BLOCK) { 
+                            p.y = tile.y + theSizeOfOneSingleSquareBlockThingy;
+                            p.vy = 0;
                         }
                     }
+                }
+            }
+        }
+
+        // touching things
+        function seeIfWeTouchedACoinOrSpike() {
+            const p = allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl;
+            const cx = p.x + p.w/2;
+            const cy = p.y + p.h/2;
+
+            const tx = Math.floor(cx / theSizeOfOneSingleSquareBlockThingy);
+            const ty = Math.floor(cy / theSizeOfOneSingleSquareBlockThingy);
+            const idx = ty * theTotalNumberOfBlocksGoingLeftToRight + tx;
+            const tile = thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers[idx];
+
+            if (tile === aListThatTellsUsWhatNumberMeansWhatBlock.OUCHY_SPIKE) {
+                // ouch
+                if (cy > ty * theSizeOfOneSingleSquareBlockThingy + 16) killThePlayerAndShowGameOver("Spiked!");
+            } else if (tile === aListThatTellsUsWhatNumberMeansWhatBlock.WINNER_FLAG) {
+                showTheVictoryScreenBecauseYouWon();
+            }
+
+            // money money
+            allTheGameLogicStuffIsStoredInHereIDKWhy.theMoneyThingsYouCanCollect.forEach(c => {
+                if (c.collected) return;
+                const dx = cx - c.x - 8; 
+                const dy = cy - c.y - 8;
+                if (Math.sqrt(dx*dx + dy*dy) < 16) {
+                    c.collected = true;
+                    allTheGameLogicStuffIsStoredInHereIDKWhy.howManyPointsYouHave += 100;
+                    makeExplosionParticles(c.x + 8, c.y + 8, '#fbbf24');
+                }
+            });
+        }
+
+        // you dead
+        function killThePlayerAndShowGameOver(reason) {
+            allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.isHeDead = true;
+            showTheGameEndingScreen('Game Over', reason, false);
+            makeExplosionParticles(allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.x + 12, allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.y + 12, '#ef4444', 20);
+        }
+
+        // you win
+        function showTheVictoryScreenBecauseYouWon() {
+            allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.didHeWin = true;
+            showTheGameEndingScreen('Victory!', `Score: ${allTheGameLogicStuffIsStoredInHereIDKWhy.howManyPointsYouHave}`, true);
+            makeExplosionParticles(allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.x + 12, allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl.y + 12, '#22c55e', 50);
+        }
+
+        // show box
+        function showTheGameEndingScreen(title, sub, isWin) {
+            document.getElementById('overlayTitle').innerText = title;
+            document.getElementById('overlayTitle').className = isWin ? "text-4xl font-bold mb-2 text-green-400 drop-shadow-lg" : "text-4xl font-bold mb-2 text-red-400 drop-shadow-lg";
+            document.getElementById('overlaySub').innerText = sub;
+            
+            const overlay = document.getElementById('gameOverlay');
+            overlay.classList.remove('hidden');
+            // make it look like a full screen change
+            overlay.style.backgroundColor = '#0f172a'; // solid slate-950
+            overlay.style.backdropFilter = 'none';
+        }
+
+        // boom
+        function makeExplosionParticles(x, y, color, count=10) {
+            for(let i=0; i<count; i++) {
+                allTheGameLogicStuffIsStoredInHereIDKWhy.theExplosionParticles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 6,
+                    vy: (Math.random() - 0.5) * 6,
+                    life: 30 + Math.random() * 20,
+                    color: color
                 });
             }
-
-            // Player Physics
-            if(state.player.dead || state.player.won) return;
-            const p = state.player;
-            const speed = (state.keys.shift ? 0.3 : 0.15) * p.speed;
-            
-            const fwd = new THREE.Vector3(0,0,-1).applyEuler(new THREE.Euler(0,p.rot.y,0));
-            const right = new THREE.Vector3(1,0,0).applyEuler(new THREE.Euler(0,p.rot.y,0));
-            const move = new THREE.Vector3();
-            
-            if(state.keys.w) move.add(fwd);
-            if(state.keys.s) move.sub(fwd);
-            if(state.keys.d) move.add(right);
-            if(state.keys.a) move.sub(right);
-            if(move.length() > 0) move.normalize().multiplyScalar(speed);
-
-            p.vel.x = move.x;
-            p.vel.z = move.z;
-            p.vel.y -= 0.015; // Gravity
-
-            if(state.keys.space && p.onGround) { p.vel.y = 0.3; p.onGround = false; }
-
-            // Collisions
-            checkCollision(p);
-
-            camera.position.copy(p.pos);
-            camera.position.y += 1.6;
-            
-            // Check Items
-            checkItems(p);
-            
-            if(p.pos.y < -20) die();
         }
 
-        function checkCollision(p) {
-            // Simple Axis Separation
-            const axes = ['x', 'z', 'y'];
-            axes.forEach(axis => {
-                const testPos = p.pos.clone();
-                if(axis === 'y') testPos.y += p.vel.y;
-                else if(axis === 'x') testPos.x += p.vel.x;
-                else testPos.z += p.vel.z;
-
-                // Box Check
-                const boxMin = new THREE.Vector3(testPos.x-0.3, testPos.y, testPos.z-0.3);
-                const boxMax = new THREE.Vector3(testPos.x+0.3, testPos.y+1.8, testPos.z+0.3);
-                
-                let collide = false;
-                // Check surrounding voxels
-                for(let x=Math.floor(boxMin.x); x<=Math.ceil(boxMax.x); x++) {
-                    for(let y=Math.floor(boxMin.y); y<=Math.ceil(boxMax.y); y++) {
-                        for(let z=Math.floor(boxMin.z); z<=Math.ceil(boxMax.z); z++) {
-                            const id = state.voxels[`${x},${y},${z}`];
-                            if(id) {
-                                const def = BLOCKS.find(b => b.id === id);
-                                if(def.type === 'solid' || def.type === 'turret') collide = true;
-                            }
-                        }
-                    }
-                }
-                
-                if(collide) {
-                    if(axis === 'y') {
-                        if(p.vel.y < 0) p.onGround = true;
-                        p.vel.y = 0;
-                    }
-                } else {
-                    if(axis === 'y') { 
-                        p.pos.y += p.vel.y;
-                        p.onGround = false;
-                    }
-                    else if(axis === 'x') p.pos.x += p.vel.x;
-                    else p.pos.z += p.vel.z;
-                }
-            });
-            // Floor
-            if(p.pos.y < 0) { p.pos.y = 0; p.onGround = true; p.vel.y = 0; }
+        // this shit keeps running
+        function theMainLoopThatRunsSixtyTimesASecond() {
+            calculatePhysicsAndMovementStuff();
+            actuallyDrawEverythingOnTheCanvasNow();
+            requestAnimationFrame(theMainLoopThatRunsSixtyTimesASecond);
         }
 
-        function checkItems(p) {
-            state.items.forEach(i => {
-                if(!i.active) return;
-                const dist = new THREE.Vector3(i.x+0.5, i.y+0.5, i.z+0.5).distanceTo(p.pos);
-                if(dist < 1.0) {
-                    if(i.def.type === 'coin') {
-                        state.score += 100;
-                        document.getElementById('score-val').innerText = state.score;
-                        scene.remove(i.mesh);
-                        i.active = false;
-                    } else if(i.def.type === 'hazard') die();
-                    else if(i.def.type === 'goal') win();
-                    else if(i.def.type === 'jumppad') { p.vel.y = 0.8; p.onGround = false; }
-                    else if(i.def.type === 'speedpad') { p.speed = 2.5; setTimeout(()=>p.speed=1, 2000); }
-                }
-            });
-        }
+        // paint stuff
+        function actuallyDrawEverythingOnTheCanvasNow() {
+            // clearing the thing
+            theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = '#020617'; 
+            theContextThingyNormallyCalledCtxButImChangingIt.fillRect(0, 0, theHTMLCanvasElementThatWeDrawOn.width, theHTMLCanvasElementThatWeDrawOn.height);
 
-        function spawnBullet(pos, dir) {
-            const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.2), bulletMat);
-            mesh.position.copy(pos);
-            scene.add(mesh);
-            state.entities.push({ type:'bullet', mesh, pos: pos.clone(), vel: dir.multiplyScalar(0.4) });
-        }
-
-        function spawnEnemy(pos) {
-            const mesh = new THREE.Mesh(boxGeo, enemyMat);
-            mesh.position.copy(pos);
-            mesh.scale.set(0.8,0.8,0.8);
-            scene.add(mesh);
-            state.entities.push({ type:'enemy', mesh, pos });
-        }
-
-        function die() {
-            state.player.dead = true;
-            document.exitPointerLock();
-            document.getElementById('game-overlay').classList.remove('hidden');
-            document.getElementById('overlay-title').innerText = "GAME OVER";
-            document.getElementById('overlay-title').className = "text-6xl font-black mb-4 text-red-500";
-        }
-
-        function win() {
-            state.player.won = true;
-            document.exitPointerLock();
-            document.getElementById('game-overlay').classList.remove('hidden');
-            document.getElementById('overlay-title').innerText = "VICTORY";
-            document.getElementById('overlay-title').className = "text-6xl font-black mb-4 text-yellow-400";
-        }
-
-        function resetLevel() {
-            state.player.dead = false;
-            state.player.won = false;
-            state.player.vel.set(0,0,0);
-            state.score = 0;
-            document.getElementById('score-val').innerText = "0";
-            document.getElementById('game-overlay').classList.add('hidden');
-            
-            // Clear Dynamics
-            state.entities.forEach(e => scene.remove(e.mesh));
-            state.entities = [];
-            
-            // Respawn Items
-            state.items.forEach(i => {
-                if(!i.active && i.mesh) { scene.add(i.mesh); i.active = true; }
-                if(i.def.type === 'enemy_spawner') spawnEnemy(new THREE.Vector3(i.x+0.5, i.y+1, i.z+0.5));
-            });
-
-            // Set Position
-            let spawn = new THREE.Vector3(0,5,0);
-            const spawnKey = Object.keys(state.voxels).find(k => state.voxels[k] === 10); // Start ID
-            if(spawnKey) {
-                const [x,y,z] = spawnKey.split(',').map(Number);
-                spawn.set(x+0.5, y+2, z+0.5);
+            // lines
+            if (thisVariableHoldsEverythingThatIsHappeningRightNow.whatModeAreWeIn === 'EDIT' && thisVariableHoldsEverythingThatIsHappeningRightNow.isTheGridLinesVisibleOrNot) {
+                theContextThingyNormallyCalledCtxButImChangingIt.strokeStyle = '#1e293b';
+                theContextThingyNormallyCalledCtxButImChangingIt.lineWidth = 1;
+                theContextThingyNormallyCalledCtxButImChangingIt.beginPath();
+                for (let x = 0; x <= theHTMLCanvasElementThatWeDrawOn.width; x += theSizeOfOneSingleSquareBlockThingy) { theContextThingyNormallyCalledCtxButImChangingIt.moveTo(x, 0); theContextThingyNormallyCalledCtxButImChangingIt.lineTo(x, theHTMLCanvasElementThatWeDrawOn.height); }
+                for (let y = 0; y <= theHTMLCanvasElementThatWeDrawOn.height; y += theSizeOfOneSingleSquareBlockThingy) { theContextThingyNormallyCalledCtxButImChangingIt.moveTo(0, y); theContextThingyNormallyCalledCtxButImChangingIt.lineTo(theHTMLCanvasElementThatWeDrawOn.width, y); }
+                theContextThingyNormallyCalledCtxButImChangingIt.stroke();
             }
-            state.player.pos.copy(spawn);
+
+            // drawing all the blocks one by one
+            for (let y = 0; y < theTotalNumberOfBlocksGoingTopToBottom; y++) {
+                for (let x = 0; x < theTotalNumberOfBlocksGoingLeftToRight; x++) {
+                    const idx = y * theTotalNumberOfBlocksGoingLeftToRight + x;
+                    const type = thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers[idx];
+                    const px = x * theSizeOfOneSingleSquareBlockThingy;
+                    const py = y * theSizeOfOneSingleSquareBlockThingy;
+
+                    if (type === aListThatTellsUsWhatNumberMeansWhatBlock.NOTHING) continue;
+
+                    if (thisVariableHoldsEverythingThatIsHappeningRightNow.whatModeAreWeIn === 'PLAY') {
+                         if (type === aListThatTellsUsWhatNumberMeansWhatBlock.THE_DUDE) continue; 
+                         if (type === aListThatTellsUsWhatNumberMeansWhatBlock.MONEY_THING) continue; 
+                    }
+
+                    if (type === aListThatTellsUsWhatNumberMeansWhatBlock.GROUND_BLOCK) {
+                        theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = '#334155';
+                        theContextThingyNormallyCalledCtxButImChangingIt.fillRect(px, py, theSizeOfOneSingleSquareBlockThingy, theSizeOfOneSingleSquareBlockThingy);
+                        theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = '#475569';
+                        theContextThingyNormallyCalledCtxButImChangingIt.fillRect(px, py, theSizeOfOneSingleSquareBlockThingy, 4);
+                    } else if (type === aListThatTellsUsWhatNumberMeansWhatBlock.FLOATY_BLOCK) {
+                         theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = '#64748b';
+                         theContextThingyNormallyCalledCtxButImChangingIt.fillRect(px, py, theSizeOfOneSingleSquareBlockThingy, 8);
+                    } else if (type === aListThatTellsUsWhatNumberMeansWhatBlock.THE_DUDE) {
+                        theContextThingyNormallyCalledCtxButImChangingIt.strokeStyle = '#3b82f6';
+                        theContextThingyNormallyCalledCtxButImChangingIt.lineWidth = 2;
+                        theContextThingyNormallyCalledCtxButImChangingIt.strokeRect(px+4, py+4, theSizeOfOneSingleSquareBlockThingy-8, theSizeOfOneSingleSquareBlockThingy-8);
+                        theContextThingyNormallyCalledCtxButImChangingIt.font = '10px monospace';
+                        theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = '#3b82f6';
+                        theContextThingyNormallyCalledCtxButImChangingIt.fillText('START', px+2, py+20);
+                    } else if (type === aListThatTellsUsWhatNumberMeansWhatBlock.MONEY_THING) {
+                        theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = '#fbbf24';
+                        theContextThingyNormallyCalledCtxButImChangingIt.beginPath();
+                        theContextThingyNormallyCalledCtxButImChangingIt.arc(px + 16, py + 16, 8, 0, Math.PI * 2);
+                        theContextThingyNormallyCalledCtxButImChangingIt.fill();
+                    } else if (type === aListThatTellsUsWhatNumberMeansWhatBlock.OUCHY_SPIKE) {
+                        theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = '#ef4444';
+                        theContextThingyNormallyCalledCtxButImChangingIt.beginPath();
+                        theContextThingyNormallyCalledCtxButImChangingIt.moveTo(px, py + theSizeOfOneSingleSquareBlockThingy);
+                        theContextThingyNormallyCalledCtxButImChangingIt.lineTo(px + theSizeOfOneSingleSquareBlockThingy / 2, py);
+                        theContextThingyNormallyCalledCtxButImChangingIt.lineTo(px + theSizeOfOneSingleSquareBlockThingy, py + theSizeOfOneSingleSquareBlockThingy);
+                        theContextThingyNormallyCalledCtxButImChangingIt.fill();
+                    } else if (type === aListThatTellsUsWhatNumberMeansWhatBlock.WINNER_FLAG) {
+                        theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = '#22c55e';
+                        theContextThingyNormallyCalledCtxButImChangingIt.fillRect(px + 10, py + 4, 4, 28);
+                        theContextThingyNormallyCalledCtxButImChangingIt.beginPath();
+                        theContextThingyNormallyCalledCtxButImChangingIt.moveTo(px + 14, py + 4);
+                        theContextThingyNormallyCalledCtxButImChangingIt.lineTo(px + 28, py + 10);
+                        theContextThingyNormallyCalledCtxButImChangingIt.lineTo(px + 14, py + 16);
+                        theContextThingyNormallyCalledCtxButImChangingIt.fill();
+                    }
+                }
+            }
+
+            // draw play stuff
+            if (thisVariableHoldsEverythingThatIsHappeningRightNow.whatModeAreWeIn === 'PLAY' && allTheGameLogicStuffIsStoredInHereIDKWhy.isTheGameRunning) {
+                // coins
+                allTheGameLogicStuffIsStoredInHereIDKWhy.theMoneyThingsYouCanCollect.forEach(c => {
+                    if (c.collected) return;
+                    const bob = Math.sin(Date.now() / 200 + c.bobOffset) * 3;
+                    theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = '#fbbf24';
+                    theContextThingyNormallyCalledCtxButImChangingIt.shadowColor = '#fbbf24';
+                    theContextThingyNormallyCalledCtxButImChangingIt.shadowBlur = 10;
+                    theContextThingyNormallyCalledCtxButImChangingIt.beginPath();
+                    theContextThingyNormallyCalledCtxButImChangingIt.arc(c.x, c.y + bob, 6, 0, Math.PI * 2);
+                    theContextThingyNormallyCalledCtxButImChangingIt.fill();
+                    theContextThingyNormallyCalledCtxButImChangingIt.shadowBlur = 0;
+                });
+
+                // player
+                const p = allTheGameLogicStuffIsStoredInHereIDKWhy.theLittleGuyYouControl;
+                if (!p.isHeDead && !p.didHeWin) {
+                    theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = '#3b82f6';
+                    // wobbly logic
+                    let w = p.w;
+                    let h = p.h;
+                    let offX = 0;
+                    let offY = 0;
+                    
+                    if (!p.isHeOnTheGround) { h = p.h + 4; w = p.w - 4; offX = 2; offY = -2; }
+                    else if (Math.abs(p.vx) > 0.1) {
+                         const wobble = Math.sin(Date.now() / 50) * 2;
+                         h = p.h - Math.abs(wobble);
+                         w = p.w + Math.abs(wobble);
+                         offY = Math.abs(wobble);
+                         offX = -Math.abs(wobble)/2;
+                    }
+
+                    theContextThingyNormallyCalledCtxButImChangingIt.fillRect(p.x + offX, p.y + offY, w, h);
+                    
+                    // eyeballs
+                    theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = 'white';
+                    const dir = KEYS.left ? -1 : 1;
+                    theContextThingyNormallyCalledCtxButImChangingIt.fillRect(p.x + offX + (dir === 1 ? 14 : 4), p.y + offY + 4, 4, 4);
+                }
+
+                // particles
+                allTheGameLogicStuffIsStoredInHereIDKWhy.theExplosionParticles.forEach(pt => {
+                    theContextThingyNormallyCalledCtxButImChangingIt.globalAlpha = pt.life / 30;
+                    theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = pt.color;
+                    theContextThingyNormallyCalledCtxButImChangingIt.fillRect(pt.x, pt.y, 4, 4);
+                    theContextThingyNormallyCalledCtxButImChangingIt.globalAlpha = 1;
+                });
+
+                // score text
+                theContextThingyNormallyCalledCtxButImChangingIt.fillStyle = 'white';
+                theContextThingyNormallyCalledCtxButImChangingIt.font = 'bold 16px sans-serif';
+                theContextThingyNormallyCalledCtxButImChangingIt.fillText(`SCORE: ${allTheGameLogicStuffIsStoredInHereIDKWhy.howManyPointsYouHave}`, 20, 30);
+            }
         }
 
-        function setMode(m) {
-            state.mode = m;
-            const editBtn = document.getElementById('modeEdit');
-            const playBtn = document.getElementById('modePlay');
+        // save it
+        function saveTheLevelToAJsonFile() {
+            const data = {
+                version: 1,
+                date: new Date().toISOString(),
+                map: thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers,
+                width: theTotalNumberOfBlocksGoingLeftToRight,
+                height: theTotalNumberOfBlocksGoingTopToBottom
+            };
+            const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'my-gamerkraft-level.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // load it
+        function loadTheLevelFromAJsonFile(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    if (data.map && data.map.length === theTotalNumberOfBlocksGoingLeftToRight * theTotalNumberOfBlocksGoingTopToBottom) {
+                        thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers = data.map;
+                        // reset if needed
+                        if (thisVariableHoldsEverythingThatIsHappeningRightNow.whatModeAreWeIn === 'PLAY') switchBetweenEditingAndPlayingTheGame('EDIT');
+                        displayAPopupBoxThingy('Success', 'Level loaded successfully!', false);
+                    } else {
+                        displayAPopupBoxThingy('Error', 'Invalid level format or dimensions.', false);
+                    }
+                } catch (err) {
+                    displayAPopupBoxThingy('Error', 'Error reading file.', false);
+                }
+            };
+            reader.readAsText(file);
+            e.target.value = ''; 
+        }
+
+        // publish it
+        function exportTheGameAsAStandaloneHtmlFile() {
+            displayAPopupBoxThingy('Publish Game', 'Download a standalone HTML file? This file will contain your game engine and level, ready to play in any browser.', true, () => {
+                // wait for box to close
+                setTimeout(() => {
+                    let source = document.documentElement.outerHTML;
+                    // injecting the map stuff
+                    const injection = `<script>window.EXPORTED_GAME_DATA = { map: ${JSON.stringify(thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers)} };<\/script>`;
+                    source = source.replace('</head>', `${injection}</head>`);
+                    
+                    const blob = new Blob([source], { type: 'text/html' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'my-published-game.html';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                }, 100);
+            });
+        }
+
+        // delete it
+        function deleteEverythingOnTheMap() {
+            displayAPopupBoxThingy('Clear Map', 'Are you sure you want to delete everything? This cannot be undone.', true, () => {
+                thisVariableHoldsEverythingThatIsHappeningRightNow.theMapDataArrayWithNumbers.fill(0);
+                if(thisVariableHoldsEverythingThatIsHappeningRightNow.whatModeAreWeIn === 'PLAY') switchBetweenEditingAndPlayingTheGame('EDIT');
+            });
+        }
+
+        // show the box
+        function displayAPopupBoxThingy(title, text, isConfirm, onConfirm) {
+            const el = document.getElementById('dialogModal');
+            document.getElementById('dialogTitle').innerText = title;
+            document.getElementById('dialogText').innerText = text;
             
-            if(m === 'EDIT') {
-                editBtn.className = "px-3 py-1 text-xs font-bold rounded bg-blue-600 text-white shadow";
-                playBtn.className = "px-3 py-1 text-xs font-bold rounded text-slate-400 hover:text-white";
+            const btnConfirm = document.getElementById('dialogConfirm');
+            const btnCancel = document.getElementById('dialogCancel');
+
+            // clone remove listeners
+            const newConfirm = btnConfirm.cloneNode(true);
+            const newCancel = btnCancel.cloneNode(true);
+            btnConfirm.parentNode.replaceChild(newConfirm, btnConfirm);
+            btnCancel.parentNode.replaceChild(newCancel, btnCancel);
+
+            if (isConfirm) {
+                newConfirm.innerText = 'Confirm';
+                newConfirm.className = "px-4 py-2 rounded bg-red-600 hover:bg-red-500 text-white text-sm font-medium transition-colors shadow-lg";
+                newCancel.classList.remove('hidden');
                 
-                document.getElementById('score-display').classList.add('hidden');
-                document.getElementById('crosshair').classList.add('hidden');
-                document.getElementById('game-overlay').classList.add('hidden');
-                document.exitPointerLock();
-                ghost.visible = true;
-                axesHelper.visible = true;
-                gridHelper.visible = true;
+                newConfirm.onclick = () => {
+                    if (onConfirm) onConfirm();
+                    el.classList.add('hidden');
+                };
             } else {
-                playBtn.className = "px-3 py-1 text-xs font-bold rounded bg-blue-600 text-white shadow";
-                editBtn.className = "px-3 py-1 text-xs font-bold rounded text-slate-400 hover:text-white";
+                newConfirm.innerText = 'OK';
+                newConfirm.className = "px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors shadow-lg";
+                newCancel.classList.add('hidden');
                 
-                document.getElementById('score-display').classList.remove('hidden');
-                document.getElementById('crosshair').classList.remove('hidden');
-                ghost.visible = false;
-                selectionBox.visible = false;
-                axesHelper.visible = false;
-                gridHelper.visible = false;
-                
-                resetLevel();
-                document.body.requestPointerLock();
+                newConfirm.onclick = () => {
+                    el.classList.add('hidden');
+                };
             }
+
+            newCancel.onclick = () => {
+                el.classList.add('hidden');
+            };
+
+            el.classList.remove('hidden');
         }
 
-        document.addEventListener('keydown', e => {
-            if(state.mode === 'PLAY') {
-                if(e.code === 'KeyW') state.keys.w = true;
-                if(e.code === 'KeyS') state.keys.s = true;
-                if(e.code === 'KeyA') state.keys.a = true;
-                if(e.code === 'KeyD') state.keys.d = true;
-                if(e.code === 'Space') state.keys.space = true;
-                if(e.code === 'ShiftLeft') state.keys.shift = true;
+        // tutorial stuff
+        let currentStepInTheTutorialThingy = 0;
+        let isTheTutorialThingActiveOrNot = false;
+
+        const tutorialSteps = [
+            { target: '#mainHeader', title: 'Welcome to GamerKraft', msg: 'Your professional 2D game engine. Let\'s take a quick tour of the interface!', pos: 'bottom' },
+            { target: '#modeControls', title: 'Game Modes', msg: 'Switch between "Editor" to build your world and "Play" to test it instantly.', pos: 'bottom' },
+            { target: '#toolsSection', title: 'Tool Palette', msg: 'Select brushes here. Use Ground for walls, Player for spawn points, and Spikes for hazards.', pos: 'right' },
+            { target: '#workspace', title: 'The Canvas', msg: 'This is your world. Left-click to paint, Right-click to erase tiles.', pos: 'center' },
+            { target: '#ioControls', title: 'Save & Publish', msg: 'Save your project as JSON, or click the Rocket to publish a standalone game file!', pos: 'bottom' }
+        ];
+
+        // start help
+        function startTheTutorialThingy() {
+            isTheTutorialThingActiveOrNot = true;
+            currentStepInTheTutorialThingy = 0;
+            document.getElementById('tutorial-overlay').style.display = 'block';
+            updateTheTutorialBoxPositionAndText();
+        }
+
+        // end help
+        function endTheTutorialThingy() {
+            isTheTutorialThingActiveOrNot = false;
+            document.getElementById('tutorial-overlay').style.display = 'none';
+        }
+
+        // next help
+        function goToTheNextStepInTutorial() {
+            currentStepInTheTutorialThingy++;
+            if (currentStepInTheTutorialThingy >= tutorialSteps.length) {
+                endTheTutorialThingy();
             } else {
-                // Editor Fly
-                const speed = e.shiftKey ? 1 : 0.5;
-                const fwd = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-                const right = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
-                if(e.code === 'KeyW') camera.position.add(fwd.multiplyScalar(speed));
-                if(e.code === 'KeyS') camera.position.sub(fwd.multiplyScalar(speed));
-                if(e.code === 'KeyD') camera.position.add(right.multiplyScalar(speed));
-                if(e.code === 'KeyA') camera.position.sub(right.multiplyScalar(speed));
+                updateTheTutorialBoxPositionAndText();
             }
-        });
-        document.addEventListener('keyup', e => {
-            if(e.code === 'KeyW') state.keys.w = false;
-            if(e.code === 'KeyS') state.keys.s = false;
-            if(e.code === 'KeyA') state.keys.a = false;
-            if(e.code === 'KeyD') state.keys.d = false;
-            if(e.code === 'Space') state.keys.space = false;
-            if(e.code === 'ShiftLeft') state.keys.shift = false;
-        });
-        
-        // --- IO ---
-        function saveWorld() {
-            const blob = new Blob([JSON.stringify({voxels:state.voxels})], {type:'application/json'});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='world.json'; a.click();
-        }
-        function loadWorld(input) {
-            const r = new FileReader(); r.onload = e => {
-                const d = JSON.parse(e.target.result); clearWorld();
-                Object.keys(d.voxels).forEach(k => { const [x,y,z] = k.split(',').map(Number); createBlock(x,y,z,d.voxels[k]); });
-            }; r.readAsText(input.files[0]);
-        }
-        function publishGame() {
-            let html = document.documentElement.outerHTML;
-            html = html.replace('</head>', `<script>window.EXPORTED_WORLD=${JSON.stringify(state.voxels)}<\/script></head>`)
-                       .replace('<body class="', '<body class="exported ');
-            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], {type:'text/html'})); a.download='GamerKraft_Pro.html'; a.click();
-        }
-        if(window.EXPORTED_WORLD) {
-            Object.keys(window.EXPORTED_WORLD).forEach(k => { const [x,y,z] = k.split(',').map(Number); createBlock(x,y,z, window.EXPORTED_WORLD[k]); });
-        }
-        function startExportedGame() {
-            document.getElementById('start-screen').style.display = 'none';
-            setMode('PLAY');
         }
 
-        // Loop
-        lucide.createIcons();
-        clearWorld();
-        
-        function animate() {
-            requestAnimationFrame(animate);
-            if(state.mode === 'PLAY') updateGame();
-            renderer.render(scene, camera);
-        }
-        animate();
+        // move box
+        function updateTheTutorialBoxPositionAndText() {
+            const step = tutorialSteps[currentStepInTheTutorialThingy];
+            const target = document.querySelector(step.target);
+            if (!target) return; 
+            
+            if (step.target === '#toolsSection' || step.target === '#settingsSection') {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
 
-        window.onresize = () => {
-            camera.aspect = window.innerWidth/window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        };
+            const rect = target.getBoundingClientRect();
+            const spotlight = document.getElementById('spotlight');
+            const card = document.getElementById('tutorialCard');
+
+            spotlight.style.left = `${rect.left - 4}px`;
+            spotlight.style.top = `${rect.top - 4}px`;
+            spotlight.style.width = `${rect.width + 8}px`;
+            spotlight.style.height = `${rect.height + 8}px`;
+
+            document.getElementById('tutTitle').innerText = step.title;
+            document.getElementById('tutText').innerText = step.msg;
+            document.getElementById('tutStep').innerText = `${currentStepInTheTutorialThingy + 1}/${tutorialSteps.length}`;
+
+            const cardW = 300;
+            const cardH = 150; 
+            let top = rect.bottom + 20;
+            let left = rect.left;
+
+            if (step.pos === 'right') {
+                left = rect.right + 20;
+                top = rect.top;
+            } else if (step.pos === 'center') {
+                left = window.innerWidth / 2 - 150;
+                top = window.innerHeight / 2 - 75;
+            } else {
+                if (left + cardW > window.innerWidth) left = window.innerWidth - cardW - 20;
+            }
+
+            card.style.top = `${top}px`;
+            card.style.left = `${left}px`;
+        }
+
+        // go
+        startTheWholeFreakingEngine();
+
     </script>
 </body>
 </html>
